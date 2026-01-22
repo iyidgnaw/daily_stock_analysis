@@ -12,6 +12,7 @@ from core.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
 from core.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
 from core.market_analyzer import MarketAnalyzer
 from core.storage import get_db, DatabaseManager
+from core.config import get_config, Config
 
 __all__ = [
     'GeminiAnalyzer',
@@ -22,4 +23,6 @@ __all__ = [
     'MarketAnalyzer',
     'get_db',
     'DatabaseManager',
+    'get_config',
+    'Config',
 ]

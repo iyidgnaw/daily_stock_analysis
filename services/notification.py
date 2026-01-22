@@ -28,7 +28,7 @@ from enum import Enum
 
 import requests
 
-from config import get_config
+from core.config import get_config
 from core.analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)

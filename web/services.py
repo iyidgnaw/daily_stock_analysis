@@ -245,7 +245,7 @@ class AnalysisService:
         
         try:
             # 延迟导入避免循环依赖
-            from config import get_config
+            from core.config import get_config
             from main import StockAnalysisPipeline
             
             logger.info(f"[AnalysisService] 开始分析股票: {code}")

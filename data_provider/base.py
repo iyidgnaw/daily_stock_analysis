@@ -274,7 +274,7 @@ class DataFetcherManager:
         from .tushare_fetcher import TushareFetcher
         from .baostock_fetcher import BaostockFetcher
         from .yfinance_fetcher import YfinanceFetcher
-        from config import get_config
+        from core.config import get_config
 
         config = get_config()
 

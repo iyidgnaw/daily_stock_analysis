@@ -54,7 +54,7 @@ def test_config():
     """测试配置加载"""
     print_header("1. 配置加载测试")
     
-    from config import get_config
+    from core.config import get_config
     config = get_config()
     
     print_section("基础配置")
@@ -208,7 +208,7 @@ def test_llm():
     print_header("4. LLM (Gemini) 调用测试")
     
     from core.analyzer import GeminiAnalyzer
-    from config import get_config
+    from core.config import get_config
     import time
     
     config = get_config()
@@ -311,7 +311,7 @@ def test_notification():
     print_header("5. 通知推送测试")
     
     from services.notification import NotificationService
-    from config import get_config
+    from core.config import get_config
     
     config = get_config()
     service = NotificationService()
