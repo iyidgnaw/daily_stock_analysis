@@ -46,8 +46,8 @@ from storage import get_db, DatabaseManager
 from data_provider import DataFetcherManager
 from data_provider.akshare_fetcher import AkshareFetcher, RealtimeQuote, ChipDistribution
 from core.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
-from notification import NotificationService, NotificationChannel, send_daily_report
-from search_service import SearchService, SearchResponse
+from services.notification import NotificationService, NotificationChannel, send_daily_report
+from services.search_service import SearchService, SearchResponse
 from utils.enums import ReportType
 from core.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
 from core.market_analyzer import MarketAnalyzer

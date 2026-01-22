@@ -310,7 +310,7 @@ def test_notification():
     """测试通知推送"""
     print_header("5. 通知推送测试")
     
-    from notification import NotificationService
+    from services.notification import NotificationService
     from config import get_config
     
     config = get_config()

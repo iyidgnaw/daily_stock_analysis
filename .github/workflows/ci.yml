@@ -49,10 +49,10 @@ jobs:
       
       - name: 🐍 语法检查
         run: |
-          python -m py_compile main.py config.py notification.py
-          python -m py_compile storage.py search_service.py
+          python -m py_compile main.py config.py storage.py
           python -m py_compile core/*.py
           python -m py_compile utils/*.py
+          python -m py_compile services/*.py
           python -m py_compile integrations/*.py
           python -m py_compile data_provider/*.py
           python -m py_compile web/*.py
@@ -67,7 +67,7 @@ jobs:
         run: |
           python -c "from config import get_config; print('✅ config')"
           python -c "from storage import DatabaseManager; print('✅ storage')"
-          python -c "from notification import NotificationService; print('✅ notification')"
+          python -c "from services.notification import NotificationService; print('✅ services.notification')"
           python -c "from data_provider import DataFetcherManager; print('✅ data_provider')"
           python -c "from core.analyzer import GeminiAnalyzer; print('✅ core.analyzer')"
           python -c "from core.stock_analyzer import StockTrendAnalyzer; print('✅ core.stock_analyzer')"
