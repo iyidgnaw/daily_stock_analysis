@@ -207,7 +207,7 @@ def test_llm():
     """测试 LLM 调用"""
     print_header("4. LLM (Gemini) 调用测试")
     
-    from analyzer import GeminiAnalyzer
+    from core.analyzer import GeminiAnalyzer
     from config import get_config
     import time
     
