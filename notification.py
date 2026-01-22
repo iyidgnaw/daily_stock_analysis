@@ -1694,62 +1694,178 @@ class NotificationService:
         """
         将 Markdown 转换为简单的 HTML
         
-        支持：标题、加粗、列表、分隔线
+        支持：标题、加粗、列表、分隔线、表格
         
         使用更简单可靠的方法：先处理格式，再转义，避免内容丢失
         """
         if not markdown_text:
             return ""
         
-        # 按行处理，更可靠
+        def process_inline_formatting(text: str) -> str:
+            """处理行内格式：加粗、斜体"""
+            # 加粗 **text**
+            text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+            # 斜体 *text*（不在 ** 内的）
+            text = re.sub(r'(?<!\*)\*([^*\n]+?)\*(?!\*)', r'<em>\1</em>', text)
+            return text
+        
+        def escape_html(text: str) -> str:
+            """转义 HTML 特殊字符，但保护已有的 HTML 标签"""
+            # 先转义所有特殊字符
+            text = (text.replace('&', '&amp;')
+                       .replace('<', '&lt;')
+                       .replace('>', '&gt;'))
+            # 恢复 HTML 标签
+            html_tags = [
+                ('h1',), ('h2',), ('h3',), ('strong',), ('em',), 
+                ('li',), ('blockquote',), ('table',), ('thead',), 
+                ('tbody',), ('tr',), ('th',), ('td',), ('ul',), ('ol',)
+            ]
+            for tag in html_tags:
+                tag_name = tag[0]
+                text = text.replace(f'&lt;{tag_name}&gt;', f'<{tag_name}>')
+                text = text.replace(f'&lt;/{tag_name}&gt;', f'</{tag_name}>')
+            return text
+        
+        # 按行处理
         lines = markdown_text.split('\n')
         html_lines = []
+        in_table = False
+        in_list = False
+        table_rows = []
         
-        for line in lines:
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             original_line = line
+            stripped = line.strip()
+            
+            # 检测表格行（包含 | 且不是空行）
+            is_table_row = '|' in stripped and stripped.startswith('|') and stripped.endswith('|')
+            is_table_separator = re.match(r'^\|[\s\-\|:]+\|$', stripped)
             
             # 处理标题（必须在最前面）
             if re.match(r'^### ', line):
-                line = re.sub(r'^### (.+)$', r'<h3>\1</h3>', line)
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                content = line[4:].strip()
+                content = process_inline_formatting(content)
+                html_lines.append(f'<h3>{content}</h3>')
             elif re.match(r'^## ', line):
-                line = re.sub(r'^## (.+)$', r'<h2>\1</h2>', line)
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                content = line[3:].strip()
+                content = process_inline_formatting(content)
+                html_lines.append(f'<h2>{content}</h2>')
             elif re.match(r'^# ', line):
-                line = re.sub(r'^# (.+)$', r'<h1>\1</h1>', line)
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                content = line[2:].strip()
+                content = process_inline_formatting(content)
+                html_lines.append(f'<h1>{content}</h1>')
             # 处理分隔线
             elif re.match(r'^---+$', line):
-                line = '<hr>'
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                html_lines.append('<hr>')
+            # 处理表格
+            elif is_table_separator:
+                # 表格分隔行，跳过
+                pass
+            elif is_table_row:
+                if not in_table:
+                    # 开始新表格
+                    html_lines.append('<table>')
+                    html_lines.append('<thead>')
+                    in_table = True
+                    # 解析表头
+                    cells = [cell.strip() for cell in stripped[1:-1].split('|')]
+                    header_row = '<tr>' + ''.join([f'<th>{process_inline_formatting(cell)}</th>' for cell in cells]) + '</tr>'
+                    html_lines.append(header_row)
+                    html_lines.append('</thead>')
+                    html_lines.append('<tbody>')
+                    # 跳过下一行的分隔符
+                    if i + 1 < len(lines) and re.match(r'^\|[\s\-\|:]+\|$', lines[i + 1].strip()):
+                        i += 1
+                else:
+                    # 表格数据行
+                    cells = [cell.strip() for cell in stripped[1:-1].split('|')]
+                    row = '<tr>' + ''.join([f'<td>{process_inline_formatting(cell)}</td>' for cell in cells]) + '</tr>'
+                    html_lines.append(row)
             # 处理引用
             elif line.startswith('> '):
-                line = f'<blockquote>{line[2:]}</blockquote>'
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                content = line[2:].strip()
+                content = process_inline_formatting(content)
+                html_lines.append(f'<blockquote>{content}</blockquote>')
             # 处理列表项
             elif re.match(r'^- ', line):
-                line = re.sub(r'^- (.+)$', r'<li>\1</li>', line)
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                if not in_list:
+                    html_lines.append('<ul>')
+                    in_list = True
+                content = line[2:].strip()
+                content = process_inline_formatting(content)
+                html_lines.append(f'<li>{content}</li>')
+            # 处理空行
+            elif not stripped:
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                html_lines.append('')
             # 普通行：处理加粗和斜体
             else:
-                # 加粗 **text**
-                line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
-                # 斜体 *text*（不在 ** 内的）
-                line = re.sub(r'(?<!\*)\*([^*\n]+?)\*(?!\*)', r'<em>\1</em>', line)
+                if in_list:
+                    html_lines.append('</ul>')
+                    in_list = False
+                if in_table:
+                    html_lines.append('</tbody></table>')
+                    in_table = False
+                content = process_inline_formatting(line)
+                # 转义 HTML 但保护格式标签
+                content = escape_html(content)
+                html_lines.append(content)
             
-            # 转义 HTML 特殊字符（但保护已有的 HTML 标签）
-            if not (line.startswith('<') and line.endswith('>')):
-                # 不是 HTML 标签，需要转义
-                line = (line.replace('&', '&amp;')
-                           .replace('<', '&lt;')
-                           .replace('>', '&gt;'))
-                # 恢复我们刚添加的 HTML 标签
-                line = line.replace('&lt;h1&gt;', '<h1>').replace('&lt;/h1&gt;', '</h1>')
-                line = line.replace('&lt;h2&gt;', '<h2>').replace('&lt;/h2&gt;', '</h2>')
-                line = line.replace('&lt;h3&gt;', '<h3>').replace('&lt;/h3&gt;', '</h3>')
-                line = line.replace('&lt;strong&gt;', '<strong>').replace('&lt;/strong&gt;', '</strong>')
-                line = line.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
-                line = line.replace('&lt;li&gt;', '<li>').replace('&lt;/li&gt;', '</li>')
-                line = line.replace('&lt;blockquote&gt;', '<blockquote>').replace('&lt;/blockquote&gt;', '</blockquote>')
-            
-            html_lines.append(line)
+            i += 1
+        
+        # 关闭未关闭的标签
+        if in_list:
+            html_lines.append('</ul>')
+        if in_table:
+            html_lines.append('</tbody></table>')
         
         # 合并并处理换行
-        html_body = '<br>\n'.join(html_lines)
+        html_body = '\n'.join(html_lines)
+        # 将连续的空行转换为段落分隔
+        html_body = re.sub(r'\n{3,}', '\n\n', html_body)
+        html_body = html_body.replace('\n\n', '<p></p>')
+        html_body = html_body.replace('\n', '<br>\n')
         
         # 包装 HTML
         return f"""<!DOCTYPE html>
@@ -1758,10 +1874,16 @@ class NotificationService:
     <meta charset="utf-8">
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }}
-        h1, h2, h3 {{ color: #333; }}
+        h1, h2, h3 {{ color: #333; margin-top: 1.5em; margin-bottom: 0.5em; }}
         hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
-        blockquote {{ border-left: 4px solid #ddd; padding-left: 16px; color: #666; }}
+        blockquote {{ border-left: 4px solid #ddd; padding-left: 16px; color: #666; margin: 10px 0; }}
+        ul {{ margin: 10px 0; padding-left: 20px; }}
         li {{ margin: 4px 0; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 15px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 8px 12px; text-align: left; }}
+        th {{ background-color: #f5f5f5; font-weight: bold; }}
+        tr:nth-child(even) {{ background-color: #f9f9f9; }}
+        p {{ margin: 10px 0; }}
     </style>
 </head>
 <body>
