@@ -40,6 +40,13 @@ except ImportError:
     resend = None
     logger.warning("resend package not installed. Install it with: pip install resend")
 
+# Try to import markdown package (for Resend email formatting)
+try:
+    import markdown
+except ImportError:
+    markdown = None
+    logger.warning("markdown package not installed. Install it with: pip install markdown")
+
 
 class NotificationChannel(Enum):
     """通知渠道类型"""
@@ -1819,19 +1826,25 @@ class NotificationService:
             # 纯文本版本：直接使用原始 Markdown，确保完整内容
             plain_text = content
             
-            # HTML 版本：尝试转换（如果转换失败或截断，text 版本会作为备选）
-            try:
-                html_content = self._markdown_to_html(content)
-                html_length = len(html_content)
-                logger.info(f"Resend HTML 内容长度: {html_length} 字符")
-                
-                # 检查 HTML 转换是否导致内容丢失
-                if html_length < content_length * 0.5:  # 如果 HTML 长度小于原始内容的一半，可能有问题
-                    logger.warning(f"Resend HTML 转换后长度异常（{html_length} < {content_length}），将主要依赖 text 版本")
-                    html_content = None  # 不发送可能有问题的 HTML
-            except Exception as e:
-                logger.warning(f"Resend HTML 转换失败: {e}，将只发送 text 版本")
-                html_content = None
+            # HTML 版本：使用 markdown 包转换（参考官方示例）
+            # https://github.com/pythoninthegrass/resend_template
+            html_content = None
+            if markdown is not None:
+                try:
+                    # 使用 markdown 包转换，支持 fenced_code 扩展（代码块）
+                    html_content = markdown.markdown(content, extensions=["fenced_code"])
+                    html_length = len(html_content)
+                    logger.info(f"Resend HTML 内容长度: {html_length} 字符（使用 markdown 包转换）")
+                    
+                    # 检查 HTML 转换是否导致内容丢失
+                    if html_length < content_length * 0.5:  # 如果 HTML 长度小于原始内容的一半，可能有问题
+                        logger.warning(f"Resend HTML 转换后长度异常（{html_length} < {content_length}），将主要依赖 text 版本")
+                        html_content = None  # 不发送可能有问题的 HTML
+                except Exception as e:
+                    logger.warning(f"Resend HTML 转换失败: {e}，将只发送 text 版本")
+                    html_content = None
+            else:
+                logger.warning("markdown 包未安装，将只发送 text 版本。安装: pip install markdown")
             
             # 准备邮件参数（按照官方文档格式）
             params: Dict[str, Any] = {
