@@ -33,13 +33,21 @@ from analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)
 
+# Try to import Resend SDK (optional dependency)
+try:
+    import resend
+except ImportError:
+    resend = None
+    logger.warning("resend package not installed. Install it with: pip install resend")
+
 
 class NotificationChannel(Enum):
     """通知渠道类型"""
     WECHAT = "wechat"      # 企业微信
     FEISHU = "feishu"      # 飞书
     TELEGRAM = "telegram"  # Telegram
-    EMAIL = "email"        # 邮件
+    EMAIL = "email"        # 邮件（SMTP）
+    RESEND = "resend"      # Resend（现代邮件 API）
     PUSHOVER = "pushover"  # Pushover（手机/桌面推送）
     CUSTOM = "custom"      # 自定义 Webhook
     UNKNOWN = "unknown"    # 未知
@@ -84,7 +92,8 @@ class ChannelDetector:
             NotificationChannel.WECHAT: "企业微信",
             NotificationChannel.FEISHU: "飞书",
             NotificationChannel.TELEGRAM: "Telegram",
-            NotificationChannel.EMAIL: "邮件",
+            NotificationChannel.EMAIL: "邮件(SMTP)",
+            NotificationChannel.RESEND: "Resend",
             NotificationChannel.PUSHOVER: "Pushover",
             NotificationChannel.CUSTOM: "自定义Webhook",
             NotificationChannel.UNKNOWN: "未知渠道",
@@ -106,6 +115,7 @@ class NotificationService:
     - 飞书 Webhook
     - Telegram Bot
     - 邮件 SMTP
+    - Resend（现代邮件 API）
     - Pushover（手机/桌面推送）
     
     注意：所有已配置的渠道都会收到推送
@@ -134,6 +144,13 @@ class NotificationService:
             'sender': config.email_sender,
             'password': config.email_password,
             'receivers': config.email_receivers or ([config.email_sender] if config.email_sender else []),
+        }
+        
+        # Resend 配置
+        self._resend_config = {
+            'api_key': getattr(config, 'resend_api_key', None),
+            'from_email': getattr(config, 'resend_from_email', None),
+            'to_emails': getattr(config, 'resend_to_emails', []) or ([getattr(config, 'resend_from_email', None)] if getattr(config, 'resend_from_email', None) else []),
         }
         
         # Pushover 配置
@@ -184,6 +201,10 @@ class NotificationService:
         if self._is_email_configured():
             channels.append(NotificationChannel.EMAIL)
         
+        # Resend
+        if self._is_resend_configured():
+            channels.append(NotificationChannel.RESEND)
+        
         # Pushover
         if self._is_pushover_configured():
             channels.append(NotificationChannel.PUSHOVER)
@@ -201,6 +222,10 @@ class NotificationService:
     def _is_email_configured(self) -> bool:
         """检查邮件配置是否完整（只需邮箱和授权码）"""
         return bool(self._email_config['sender'] and self._email_config['password'])
+    
+    def _is_resend_configured(self) -> bool:
+        """检查 Resend 配置是否完整（需要 API Key 和发件人邮箱）"""
+        return bool(self._resend_config['api_key'] and self._resend_config['from_email'])
     
     def _is_pushover_configured(self) -> bool:
         """检查 Pushover 配置是否完整"""
@@ -1714,6 +1739,98 @@ class NotificationService:
         </html>
         """
     
+    def send_to_resend(self, content: str, subject: Optional[str] = None) -> bool:
+        """
+        通过 Resend API 发送邮件（现代邮件服务，替代 SMTP）
+        
+        Resend 是一个现代化的邮件 API 服务，相比 SMTP 具有以下优势：
+        - 无需配置 SMTP 服务器
+        - 更好的送达率和追踪能力
+        - 支持 HTML 和 Markdown
+        - 更简单的 API 调用
+        
+        使用官方 Resend Python SDK: https://github.com/resend/resend-python
+        
+        Args:
+            content: 邮件内容（支持 Markdown，会转换为 HTML）
+            subject: 邮件主题（可选，默认自动生成）
+            
+        Returns:
+            是否发送成功
+        """
+        if not self._is_resend_configured():
+            logger.warning("Resend 配置不完整，跳过推送")
+            return False
+        
+        if resend is None:
+            logger.error("resend 包未安装，请运行: pip install resend")
+            return False
+        
+        api_key = self._resend_config['api_key']
+        from_email = self._resend_config['from_email']
+        to_emails = self._resend_config['to_emails']
+        
+        if not to_emails:
+            logger.warning("Resend 收件人列表为空，跳过推送")
+            return False
+        
+        try:
+            # 初始化 Resend 客户端（按照官方文档）
+            resend.api_key = api_key
+            
+            # 生成主题
+            if subject is None:
+                date_str = datetime.now().strftime('%Y-%m-%d')
+                subject = f"📈 A股智能分析报告 - {date_str}"
+            
+            # 将 Markdown 转换为 HTML
+            html_content = self._markdown_to_html(content)
+            
+            # 准备邮件参数（按照官方文档格式）
+            params: Dict[str, Any] = {
+                "from": from_email,
+                "to": to_emails,
+                "subject": subject,
+                "html": html_content,
+            }
+            
+            # 添加纯文本版本作为备选（提高兼容性）
+            plain_text = self._markdown_to_plain_text(content)
+            if plain_text:
+                params["text"] = plain_text
+            
+            # 发送邮件（按照官方文档）
+            email = resend.Emails.send(params)
+            
+            # 检查结果
+            # Resend SDK 返回包含 'id' 字段的对象或字典
+            if email:
+                # 尝试获取邮件 ID（支持多种返回格式）
+                email_id = None
+                if isinstance(email, dict):
+                    email_id = email.get('id')
+                elif hasattr(email, 'id'):
+                    email_id = email.id
+                elif hasattr(email, 'get'):
+                    email_id = email.get('id')
+                
+                if email_id:
+                    logger.info(f"Resend 邮件发送成功，邮件 ID: {email_id}，收件人: {to_emails}")
+                    return True
+                else:
+                    # 即使没有 ID，如果调用成功（无异常），也认为发送成功
+                    logger.info(f"Resend 邮件发送成功（收件人: {to_emails}），响应: {email}")
+                    return True
+            else:
+                logger.error(f"Resend 邮件发送失败: 无响应")
+                return False
+                
+        except Exception as e:
+            logger.error(f"发送 Resend 邮件失败: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            return False
+    
     def send_to_telegram(self, content: str) -> bool:
         """
         推送消息到 Telegram 机器人
@@ -2333,8 +2450,10 @@ class NotificationService:
                     result = self.send_to_feishu(content)
                 elif channel == NotificationChannel.TELEGRAM:
                     result = self.send_to_telegram(content)
-                elif channel == NotificationChannel.EMAIL:
+                el                if channel == NotificationChannel.EMAIL:
                     result = self.send_to_email(content)
+                elif channel == NotificationChannel.RESEND:
+                    result = self.send_to_resend(content)
                 elif channel == NotificationChannel.PUSHOVER:
                     result = self.send_to_pushover(content)
                 elif channel == NotificationChannel.CUSTOM:

@@ -76,6 +76,11 @@ class Config:
     email_password: Optional[str] = None  # 邮箱密码/授权码
     email_receivers: List[str] = field(default_factory=list)  # 收件人列表（留空则发给自己）
     
+    # Resend 配置（现代邮件 API 服务，替代 SMTP）
+    resend_api_key: Optional[str] = None  # Resend API Key
+    resend_from_email: Optional[str] = None  # 发件人邮箱（需在 Resend 中验证）
+    resend_to_emails: List[str] = field(default_factory=list)  # 收件人列表（留空则使用 resend_from_email）
+    
     # Pushover 配置（手机/桌面推送通知）
     pushover_user_key: Optional[str] = None  # 用户 Key（https://pushover.net 获取）
     pushover_api_token: Optional[str] = None  # 应用 API Token
@@ -204,6 +209,9 @@ class Config:
             email_sender=os.getenv('EMAIL_SENDER'),
             email_password=os.getenv('EMAIL_PASSWORD'),
             email_receivers=[r.strip() for r in os.getenv('EMAIL_RECEIVERS', '').split(',') if r.strip()],
+            resend_api_key=os.getenv('RESEND_API_KEY'),
+            resend_from_email=os.getenv('RESEND_FROM_EMAIL'),
+            resend_to_emails=[r.strip() for r in os.getenv('RESEND_TO_EMAILS', '').split(',') if r.strip()],
             pushover_user_key=os.getenv('PUSHOVER_USER_KEY'),
             pushover_api_token=os.getenv('PUSHOVER_API_TOKEN'),
             custom_webhook_urls=[u.strip() for u in os.getenv('CUSTOM_WEBHOOK_URLS', '').split(',') if u.strip()],
@@ -287,6 +295,7 @@ class Config:
             self.feishu_webhook_url or
             (self.telegram_bot_token and self.telegram_chat_id) or
             (self.email_sender and self.email_password) or
+            (self.resend_api_key and self.resend_from_email) or
             (self.pushover_user_key and self.pushover_api_token) or
             (self.custom_webhook_urls and self.custom_webhook_bearer_token)
         )
