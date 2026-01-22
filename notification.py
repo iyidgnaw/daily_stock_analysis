@@ -1688,56 +1688,79 @@ class NotificationService:
         将 Markdown 转换为简单的 HTML
         
         支持：标题、加粗、列表、分隔线
+        
+        使用更简单可靠的方法：先处理格式，再转义，避免内容丢失
         """
-        html = markdown_text
+        if not markdown_text:
+            return ""
         
-        # 转义 HTML 特殊字符
-        html = html.replace('&', '&amp;')
-        html = html.replace('<', '&lt;')
-        html = html.replace('>', '&gt;')
+        # 按行处理，更可靠
+        lines = markdown_text.split('\n')
+        html_lines = []
         
-        # 标题 (# ## ###)
-        html = re.sub(r'^### (.+)$', r'<h3>\1</h3>', html, flags=re.MULTILINE)
-        html = re.sub(r'^## (.+)$', r'<h2>\1</h2>', html, flags=re.MULTILINE)
-        html = re.sub(r'^# (.+)$', r'<h1>\1</h1>', html, flags=re.MULTILINE)
+        for line in lines:
+            original_line = line
+            
+            # 处理标题（必须在最前面）
+            if re.match(r'^### ', line):
+                line = re.sub(r'^### (.+)$', r'<h3>\1</h3>', line)
+            elif re.match(r'^## ', line):
+                line = re.sub(r'^## (.+)$', r'<h2>\1</h2>', line)
+            elif re.match(r'^# ', line):
+                line = re.sub(r'^# (.+)$', r'<h1>\1</h1>', line)
+            # 处理分隔线
+            elif re.match(r'^---+$', line):
+                line = '<hr>'
+            # 处理引用
+            elif line.startswith('> '):
+                line = f'<blockquote>{line[2:]}</blockquote>'
+            # 处理列表项
+            elif re.match(r'^- ', line):
+                line = re.sub(r'^- (.+)$', r'<li>\1</li>', line)
+            # 普通行：处理加粗和斜体
+            else:
+                # 加粗 **text**
+                line = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', line)
+                # 斜体 *text*（不在 ** 内的）
+                line = re.sub(r'(?<!\*)\*([^*\n]+?)\*(?!\*)', r'<em>\1</em>', line)
+            
+            # 转义 HTML 特殊字符（但保护已有的 HTML 标签）
+            if not (line.startswith('<') and line.endswith('>')):
+                # 不是 HTML 标签，需要转义
+                line = (line.replace('&', '&amp;')
+                           .replace('<', '&lt;')
+                           .replace('>', '&gt;'))
+                # 恢复我们刚添加的 HTML 标签
+                line = line.replace('&lt;h1&gt;', '<h1>').replace('&lt;/h1&gt;', '</h1>')
+                line = line.replace('&lt;h2&gt;', '<h2>').replace('&lt;/h2&gt;', '</h2>')
+                line = line.replace('&lt;h3&gt;', '<h3>').replace('&lt;/h3&gt;', '</h3>')
+                line = line.replace('&lt;strong&gt;', '<strong>').replace('&lt;/strong&gt;', '</strong>')
+                line = line.replace('&lt;em&gt;', '<em>').replace('&lt;/em&gt;', '</em>')
+                line = line.replace('&lt;li&gt;', '<li>').replace('&lt;/li&gt;', '</li>')
+                line = line.replace('&lt;blockquote&gt;', '<blockquote>').replace('&lt;/blockquote&gt;', '</blockquote>')
+            
+            html_lines.append(line)
         
-        # 加粗 **text**
-        html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
-        
-        # 斜体 *text*
-        html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
-        
-        # 分隔线 ---
-        html = re.sub(r'^---$', r'<hr>', html, flags=re.MULTILINE)
-        
-        # 列表项 - item
-        html = re.sub(r'^- (.+)$', r'<li>\1</li>', html, flags=re.MULTILINE)
-        
-        # 引用 > text
-        html = re.sub(r'^&gt; (.+)$', r'<blockquote>\1</blockquote>', html, flags=re.MULTILINE)
-        
-        # 换行
-        html = html.replace('\n', '<br>\n')
+        # 合并并处理换行
+        html_body = '<br>\n'.join(html_lines)
         
         # 包装 HTML
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }}
-                h1, h2, h3 {{ color: #333; }}
-                hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
-                blockquote {{ border-left: 4px solid #ddd; padding-left: 16px; color: #666; }}
-                li {{ margin: 4px 0; }}
-            </style>
-        </head>
-        <body>
-            {html}
-        </body>
-        </html>
-        """
+        return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }}
+        h1, h2, h3 {{ color: #333; }}
+        hr {{ border: none; border-top: 1px solid #ddd; margin: 20px 0; }}
+        blockquote {{ border-left: 4px solid #ddd; padding-left: 16px; color: #666; }}
+        li {{ margin: 4px 0; }}
+    </style>
+</head>
+<body>
+{html_body}
+</body>
+</html>"""
     
     def send_to_resend(self, content: str, subject: Optional[str] = None) -> bool:
         """
@@ -1783,21 +1806,46 @@ class NotificationService:
                 date_str = datetime.now().strftime('%Y-%m-%d')
                 subject = f"📈 A股智能分析报告 - {date_str}"
             
-            # 将 Markdown 转换为 HTML
-            html_content = self._markdown_to_html(content)
+            # 记录原始内容长度（用于调试）
+            content_length = len(content)
+            logger.info(f"Resend 准备发送邮件，原始内容长度: {content_length} 字符")
+            
+            # Resend 支持 html 和 text 两个参数
+            # 我们发送两个版本：
+            # 1. text: 原始 Markdown 内容（确保完整，不会被截断）
+            # 2. html: 转换后的 HTML（用于更好的格式化显示）
+            # 邮件客户端会优先显示 HTML，如果不支持则显示 text
+            
+            # 纯文本版本：直接使用原始 Markdown，确保完整内容
+            plain_text = content
+            
+            # HTML 版本：尝试转换（如果转换失败或截断，text 版本会作为备选）
+            try:
+                html_content = self._markdown_to_html(content)
+                html_length = len(html_content)
+                logger.info(f"Resend HTML 内容长度: {html_length} 字符")
+                
+                # 检查 HTML 转换是否导致内容丢失
+                if html_length < content_length * 0.5:  # 如果 HTML 长度小于原始内容的一半，可能有问题
+                    logger.warning(f"Resend HTML 转换后长度异常（{html_length} < {content_length}），将主要依赖 text 版本")
+                    html_content = None  # 不发送可能有问题的 HTML
+            except Exception as e:
+                logger.warning(f"Resend HTML 转换失败: {e}，将只发送 text 版本")
+                html_content = None
             
             # 准备邮件参数（按照官方文档格式）
             params: Dict[str, Any] = {
                 "from": from_email,
                 "to": to_emails,
                 "subject": subject,
-                "html": html_content,
+                "text": plain_text,  # 纯文本版本（原始 Markdown），确保完整内容
             }
             
-            # 添加纯文本版本作为备选（提高兼容性）
-            plain_text = self._markdown_to_plain_text(content)
-            if plain_text:
-                params["text"] = plain_text
+            # 如果 HTML 转换成功，添加 HTML 版本
+            if html_content:
+                params["html"] = html_content
+            
+            logger.info(f"Resend 纯文本内容长度: {len(plain_text)} 字符")
             
             # 发送邮件（按照官方文档）
             email = resend.Emails.send(params)
