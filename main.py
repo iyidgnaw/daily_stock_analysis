@@ -929,7 +929,7 @@ def main() -> int:
     
     if start_webui:
         try:
-            from webui import run_server_in_thread
+            from web.server import run_server_in_thread
             run_server_in_thread(host=config.webui_host, port=config.webui_port)
         except Exception as e:
             logger.error(f"启动 WebUI 失败: {e}")
