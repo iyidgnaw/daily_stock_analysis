@@ -42,7 +42,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from integrations.feishu_doc import FeishuDocManager
 
 from config import get_config, Config
-from storage import get_db, DatabaseManager
+from core.storage import get_db, DatabaseManager
 from data_provider import DataFetcherManager
 from data_provider.akshare_fetcher import AkshareFetcher, RealtimeQuote, ChipDistribution
 from core.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP

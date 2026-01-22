@@ -91,7 +91,7 @@ def view_database():
     """查看数据库内容"""
     print_header("2. 数据库内容查看")
     
-    from storage import get_db
+    from core.storage import get_db
     from sqlalchemy import text
     
     db = get_db()
@@ -397,7 +397,7 @@ def query_stock_data(stock_code: str, days: int = 10):
     """查询指定股票的数据"""
     print_header(f"查询股票数据: {stock_code}")
     
-    from storage import get_db
+    from core.storage import get_db
     from sqlalchemy import text
     
     db = get_db()

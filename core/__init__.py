@@ -11,6 +11,7 @@ This package contains the core analysis logic:
 from core.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
 from core.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
 from core.market_analyzer import MarketAnalyzer
+from core.storage import get_db, DatabaseManager
 
 __all__ = [
     'GeminiAnalyzer',
@@ -19,4 +20,6 @@ __all__ = [
     'StockTrendAnalyzer',
     'TrendAnalysisResult',
     'MarketAnalyzer',
+    'get_db',
+    'DatabaseManager',
 ]
