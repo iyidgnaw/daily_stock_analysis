@@ -7,8 +7,8 @@ This package contains utility modules:
 - scheduler: Task scheduling utilities
 """
 
-from utils.enums import ReportType
-from utils.scheduler import run_with_schedule, Scheduler
+from .enums import ReportType
+from .scheduler import run_with_schedule, Scheduler
 
 __all__ = [
     'ReportType',

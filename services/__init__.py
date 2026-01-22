@@ -7,8 +7,8 @@ This package contains service layer modules:
 - search_service: News and information search service
 """
 
-from services.notification import NotificationService, NotificationChannel, send_daily_report
-from services.search_service import SearchService, SearchResponse
+from .notification import NotificationService, NotificationChannel, send_daily_report
+from .search_service import SearchService, SearchResponse
 
 __all__ = [
     'NotificationService',
