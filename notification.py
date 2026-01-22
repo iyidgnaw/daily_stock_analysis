@@ -2450,7 +2450,7 @@ class NotificationService:
                     result = self.send_to_feishu(content)
                 elif channel == NotificationChannel.TELEGRAM:
                     result = self.send_to_telegram(content)
-                el                if channel == NotificationChannel.EMAIL:
+                elif channel == NotificationChannel.EMAIL:
                     result = self.send_to_email(content)
                 elif channel == NotificationChannel.RESEND:
                     result = self.send_to_resend(content)
