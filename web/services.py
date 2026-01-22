@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Union
 
-from enums import ReportType
+from utils.enums import ReportType
 
 logger = logging.getLogger(__name__)
 

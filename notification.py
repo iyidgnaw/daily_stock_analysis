@@ -29,7 +29,7 @@ from enum import Enum
 import requests
 
 from config import get_config
-from analyzer import AnalysisResult
+from core.analyzer import AnalysisResult
 
 logger = logging.getLogger(__name__)
 

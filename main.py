@@ -45,12 +45,12 @@ from config import get_config, Config
 from storage import get_db, DatabaseManager
 from data_provider import DataFetcherManager
 from data_provider.akshare_fetcher import AkshareFetcher, RealtimeQuote, ChipDistribution
-from analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
+from core.analyzer import GeminiAnalyzer, AnalysisResult, STOCK_NAME_MAP
 from notification import NotificationService, NotificationChannel, send_daily_report
 from search_service import SearchService, SearchResponse
-from enums import ReportType
-from stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
-from market_analyzer import MarketAnalyzer
+from utils.enums import ReportType
+from core.stock_analyzer import StockTrendAnalyzer, TrendAnalysisResult
+from core.market_analyzer import MarketAnalyzer
 
 # 配置日志格式
 LOG_FORMAT = '%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s'
@@ -975,7 +975,7 @@ def main() -> int:
             logger.info("模式: 定时任务")
             logger.info(f"每日执行时间: {config.schedule_time}")
             
-            from scheduler import run_with_schedule
+            from utils.scheduler import run_with_schedule
             
             def scheduled_task():
                 run_full_analysis(config, args, stock_codes)
