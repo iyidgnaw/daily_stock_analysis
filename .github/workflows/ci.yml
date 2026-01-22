@@ -53,6 +53,7 @@ jobs:
           python -m py_compile storage.py search_service.py
           python -m py_compile core/*.py
           python -m py_compile utils/*.py
+          python -m py_compile integrations/*.py
           python -m py_compile data_provider/*.py
           python -m py_compile web/*.py
           echo "✅ Python 语法检查通过"
